@@ -15,6 +15,8 @@ public class PredictionGenerator {
 
     DatabaseInfo dbInfo;
 
+    PredictionInfo lastPredict;
+
     public PredictionGenerator(DatabaseInfo dbInfo) {
         this.dbInfo = dbInfo;
     }
@@ -27,7 +29,8 @@ public class PredictionGenerator {
                 dbInfo.teamService.getByName(team2) == null) {
             return null;
         }
-        return createPredict(prediction, dateOfMatch);
+        lastPredict = createPredict(prediction, dateOfMatch);
+        return lastPredict;
     }
 
     public PredictionInfo create(Match m) {
@@ -41,6 +44,7 @@ public class PredictionGenerator {
     private PredictionInfo createPredict(PredictionInfo pi, Date dateOfMatch) {
         double points1;
         double points2;
+        lastPredict = pi;
         try {
             points1 = getPointsOfTeam(pi.getTeam1(), dateOfMatch);
             pi.setPoints1(points1);
@@ -48,11 +52,9 @@ public class PredictionGenerator {
             pi.setPoints2(points2);
         } catch (PredictionException e) {
             System.out.println(e);
-            //pi.setResultInfo(e.getMessage());
             return pi;
         }
         pi.setFirstWin(points1 > points2);
-//        pi.setResultInfo("Прогноз успешно сделан");
         return pi;
     }
 
@@ -61,17 +63,27 @@ public class PredictionGenerator {
         List<Match> matches = dbInfo.matchService.getByTeamIdOrderByDate(team.getId());
 
         if (matches.size() < 3) {
-            throw new PredictionException("Слишком мало матчей");
+            if (matches.size() == 0)
+                throw new PredictionException("Слишком мало матчей");
+            lastPredict.incrementPredictPoints();
         }
 
+/*        if (dateOfMatch.getTime() - matches.get(0).getDate().getTime() > week * 3) {
+            lastPredict.incrementPredictPoints();
+        }
+*/
         double allPoints = 0;
         double countMaps = 0;
+
+        int countMatches = 0;
         for (Match m : matches) {
             long timeDifference = dateOfMatch.getTime() - m.getDate().getTime();
-            if (timeDifference > (week * 3)) {
-                //throw new PredictionException("Прошло слишком много времени с последнего матча");
+            if (timeDifference < (week * 3)) {
+                countMatches++;
             }
-            double koef = getKoef(timeDifference);
+
+            double timeKoef = getTimeKoef(timeDifference);
+            double ratingKoef = getRatingKoef(m.getPositionHLTV1(), m.getPositionHLTV2());
 
             double matchPoints = 0;
 
@@ -81,19 +93,78 @@ public class PredictionGenerator {
                         16 + pm.getScoreTeam1() - pm.getScoreTeam2() :
                         16 + pm.getScoreTeam2() - pm.getScoreTeam1();
 
-                matchPoints += (mapPoints * 100 * koef) * (m.getStars() + 1);
+
+                mapPoints = mapPoints * timeKoef;
+                //mapPoints = mapPoints * ratingKoef;
+                mapPoints = mapPoints * (m.getStars() + 1);
+                matchPoints += mapPoints;
             }
             countMaps += playedMaps.size();
             allPoints += matchPoints;
         }
+
+        if (countMatches < 3) {
+            lastPredict.incrementPredictPoints();
+        }
+
         return allPoints / countMaps;
     }
 
-    private double getKoef(long time) {
+    private double getRatingKoef(int hltvPos1, int hltvPos2) {
+        double koef;
+
+        MatchClass firstClass = MatchClass.indexOf(hltvPos1);
+        MatchClass secondClass = MatchClass.indexOf(hltvPos2);
+
+        koef = firstClass.rank + secondClass.rank;
+
+        return koef;
+    }
+
+    private double getTimeKoef(long time) {
         long countWeeks = time / week;
         double koef = Math.pow(0.95, (int) countWeeks);
-        return koef < 0 ? 0 : koef;
+        return 100 * (koef < 0 ? 0 : koef);
     }
+    /*
+    public PredictionInfo createVersion2(Match m) {
+        PredictionInfo predictionInfo = new PredictionInfo();
+        predictionInfo.setMatchId(m.getId());
+        predictionInfo.setTeam1(dbInfo.teamService.getById(m.getIdTeam1()).getName());
+        predictionInfo.setTeam2(dbInfo.teamService.getById(m.getIdTeam2()).getName());
+        return createPredictVersion2(predictionInfo, m.getDate());
+    }
+
+    private PredictionInfo createPredictVersion2(PredictionInfo pi, Date currentDate) {
+        double points1;
+        double points2;
+        lastPredict = pi;
+
+        points1 = getPointsOfTeamVersion2(pi.getTeam1(), currentDate);
+        pi.setPoints1(points1);
+        points2 = getPointsOfTeamVersion2(pi.getTeam2(), currentDate);
+        pi.setPoints2(points2);
+
+        pi.setFirstWin(points1 > points2);
+        return pi;
+    }
+
+    private double getPointsOfTeamVersion2(String teamName, Date currentDate) {
+        Team team = dbInfo.teamService.getByName(teamName);
+        List<Match> matches = dbInfo.matchService.getByTeamIdOrderByDate(team.getId());
+
+        double allPoints = 0;
+        for (Match m: matches) {
+            long timeDifference = currentDate.getTime() - m.getDate().getTime();
+            if (timeDifference > week * 3) {
+                continue;
+            }
+
+
+        }
+    }
+*/
+
 }
 
 class PredictionException extends Exception {

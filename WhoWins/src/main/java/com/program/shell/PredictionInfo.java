@@ -7,8 +7,7 @@ public class PredictionInfo {
     double points1;
     double points2;
     boolean firstWin;
-    int chance;
-
+    int predictPoints;
 
     public long getMatchId() {
         return matchId;
@@ -58,18 +57,21 @@ public class PredictionInfo {
         this.points2 = points2;
     }
 
-    public int getChance() {
-        return chance;
+    public int getPredictPoints() {
+        return predictPoints;
     }
 
-    public void setChance(int chance) {
-        this.chance = chance;
+    public void setPredictPoints(int predictPoints) {
+        this.predictPoints = predictPoints;
     }
 
+    public void incrementPredictPoints() {
+        predictPoints++;
+    }
 
     @Override
     public String toString() {
-            return team1 + " vs " + team2
+            return predictPoints + ": " +  team1 + " vs " + team2
                     + ", winner: " + (firstWin ? team1 : team2)
                     + ", points: " + points1 + " vs " + points2;
     }
