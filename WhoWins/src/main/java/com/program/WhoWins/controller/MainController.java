@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -100,7 +99,7 @@ public class MainController {
         List<PredictionInfo> predictions = pc.convertToListPredictionInfo(fromDB);
         for (Match m: matches) {
             PredictionInfo newPrediction = pg.create(m);
-            if (newPrediction != null) {
+            if (newPrediction != null && newPrediction.getPredictPoints() < 2) {
                 /*Prediction predict = dbInfo.savePrediction(newPrediction);
                 if (predict != null)*/
                 predictions.add(newPrediction);
