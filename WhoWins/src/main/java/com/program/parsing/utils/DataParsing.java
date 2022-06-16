@@ -199,13 +199,18 @@ public class DataParsing {
             // собираем информацию о матче со страницы результатов
             newMatch = parseMatchInfo(matchElement);
             // собираем информацию со страницы матча
-            parseMatchLink(matchLink, newMatch);
+            newMatch = parseMatchLink(matchLink, newMatch);
         } catch (DataParsingException | IOException | InterruptedException | ParseException e) {
             // если что-то собрать не получилось, отмечаем это и переходим к следующему матчу
             System.out.println(e);
             pi.failed++;
             return;
         }
+        if (newMatch == null) {
+            pi.failed++;
+            return;
+        }
+
         // сохраняем матч
         Match match = dbInfo.saveMatch(newMatch, true);
         if (match != null) {
@@ -240,29 +245,28 @@ public class DataParsing {
         }
     }
 
-    public void parseMatchLink(String matchLink, MatchInfo matchInfo)
+    public MatchInfo parseMatchLink(String matchLink, MatchInfo matchInfo)
             throws IOException, InterruptedException, DataParsingException, ParseException {
         // получаем содержимое ссылки
         Document doc = getHTMLDocument(matchLink);
-
         if (doc == null) {
-            return;
+            return null;
         }
-        // получаем турнир и дату матча
-        parseEventAndDate(doc, matchInfo);
 
-        // если матч ещё не закончился, то узнаём рейтинги команд
-        if (!matchInfo.ended) {
-            // рейтинг команды на хлтв к началу матча
-            Elements positionsOnRankingElement = doc.select("div.teamRanking");
-            matchInfo.positionHLTV1 = parseHLTVPositions(positionsOnRankingElement, true);
-            matchInfo.positionHLTV2 = parseHLTVPositions(positionsOnRankingElement, false);
-        }
+        // получаем турнир и дату матча
+        matchInfo = parseEventAndDate(doc, matchInfo);
+
+        // получаем позиции команд на HLTV
+        Elements positionsOnRankingElement = doc.select("div.teamRanking");
+        matchInfo.positionHLTV1 = parseHLTVPositions(positionsOnRankingElement, true);
+        matchInfo.positionHLTV2 = parseHLTVPositions(positionsOnRankingElement, false);
 
         // получаем сыгранные в матче карты
         matchInfo.maps = parseMaps(doc);
         // получаем тип матча (бо1, бо3, бо5)
         matchInfo.matchType = matchInfo.maps.length;
+
+        return matchInfo;
     }
 
     private MapInfo[] parseMaps(Document doc) {
@@ -288,7 +292,7 @@ public class DataParsing {
         return mapsInfo;
     }
 
-    private void parseEventAndDate(Document doc, MatchInfo matchInfo) throws ParseException {
+    private MatchInfo parseEventAndDate(Document doc, MatchInfo matchInfo) throws ParseException {
         // добавляем ивент
         Element matchInfoElement = doc.select("div.teamsBox").get(0);
         // тип матча
@@ -297,6 +301,8 @@ public class DataParsing {
         String stringTime = matchInfoElement.select("div.time").text();
         String stringDate = matchInfoElement.select("div.date").text();
         matchInfo.date = DateConverter.convertToDate(stringDate, stringTime);
+
+        return matchInfo;
     }
 
     private int parseHLTVPositions(Elements rankPosElement, boolean isFirst) throws DataParsingException {
