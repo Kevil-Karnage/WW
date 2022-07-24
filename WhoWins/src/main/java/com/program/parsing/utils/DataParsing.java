@@ -20,6 +20,7 @@ public class DataParsing {
     private DatabaseInfo dbInfo;
     private static int connectsCount = 0;
     private String teamNamePattern = "[\\w\\s'.-]*";
+    private String hostbase = "https://hltv.org%s";
 
     public DataParsing(DatabaseInfo dbInfo) {
         this.dbInfo = dbInfo;
@@ -50,9 +51,11 @@ public class DataParsing {
         Document doc = null;
         while (doc == null) {
             if (connectsCount % 10 == 0) {
+                System.out.println("Pause: 5 seconds");
                 Thread.sleep(5000);
             }
             if (connectsCount % 50 == 0) {
+                System.out.println("Pause: 10 seconds");
                 Thread.sleep(10000);
             }
             try {
@@ -70,6 +73,20 @@ public class DataParsing {
         return doc;
     }
 
+    /**
+     * get link from element from href in cssQuery
+     * (if cssQuery is null, then without it)
+     * @param el
+     * @param cssQuery
+     * @return
+     */
+    public String getLinkFromHref(Element el, String cssQuery) {
+        if (cssQuery == null) {
+            return String.format(hostbase, el.attr("href"));
+        }
+        return String.format(hostbase, el.select(cssQuery).attr("href"));
+    }
+
     public List<Match> parseMatches(int numberOfDay) throws IOException, InterruptedException, ParseException, DataParsingException {
         Document doc = getHTMLDocument("https://www.hltv.org/matches");
         Element futureMatchesElement = doc.select("div.upcomingMatchesSection").get(numberOfDay);
@@ -85,17 +102,16 @@ public class DataParsing {
             System.out.println((i + 1) + " from " + allMatchesElements.size());
 
             Element currentElement = allMatchesElements.get(i);
-            String currentMatchLink = "https://hltv.org" +
-                    allLinksOfMatchesElements.get(i).attr("href");
+            String currentMatchLink = getLinkFromHref(allLinksOfMatchesElements.get(i), null);
 
             MatchInfo matchInfo = new MatchInfo();
 
-            saveMainMatchInfo(matchInfo, currentElement, dateString);
+            parseMainMatchInfo(matchInfo, currentElement, dateString);
             // если что-то не так с инфой, не сохраняем матч
             try {
                 parseMatchLink(currentMatchLink, matchInfo);
             } catch (DataParsingException e) {
-                System.out.println(e);
+                System.out.println("Loading MATCHES: Skipped (Exception)");
                 continue;
             }
 
@@ -110,28 +126,8 @@ public class DataParsing {
         return matches;
     }
 
-    private void saveMainMatchInfo(MatchInfo matchInfo, Element el, String dateString) throws ParseException, DataParsingException {
-        String time = dateString + el.select("div.matchTime").text();
-        matchInfo.date = DateConverter.stringToDateTime(time);
-        matchInfo.matchType = Integer.parseInt("" + el.select("div.matchMeta").text().charAt(2));
-
-        String team1 = el.select("div.team1").text();
-        String team2 = el.select("div.team2").text();
-
-        if (!(
-                Pattern.matches(teamNamePattern, team1) &&
-                Pattern.matches(teamNamePattern, team2)
-        )) {
-            throw new DataParsingException("Неверные названия команд");
-        }
-        matchInfo.team1 = team1;
-        matchInfo.team2 = team2;
-
-        matchInfo.stars = el.select("div.fa.fa-star").size();
-    }
-
     public Match parseOneResult() throws IOException, InterruptedException, ParseException {
-        Document doc = getHTMLDocument("https://www.hltv.org/results");
+        Document doc = getHTMLDocument(String.format(hostbase, "/results"));
         Element resultsElement = getResultsInfo(doc, false);
 
         // результаты матчей
@@ -140,7 +136,7 @@ public class DataParsing {
         Elements allLinksOfMatchesElements = resultsElement.select("a.a-reset");
 
         Element matchElement = allMatchesElements.get(0);
-        String matchLinkElement = "https://hltv.org" + allLinksOfMatchesElements.get(0).attr("href");
+        String matchLinkElement = getLinkFromHref(allLinksOfMatchesElements.get(0), null);
         // создаём матч
         MatchInfo newMatch;
         try {
@@ -197,7 +193,7 @@ public class DataParsing {
                 System.out.println("Loading RESULTS: " + i + "%");
             }
             Element matchElement = allMatchesElements.get(i);
-            String matchLink = "https://hltv.org" + allLinksOfMatchesElements.get(i).attr("href");
+            String matchLink = getLinkFromHref(allLinksOfMatchesElements.get(i), null);
 
             parseResultOfMatch(parsingInfo, matchElement, matchLink);
         }
@@ -234,6 +230,26 @@ public class DataParsing {
             // иначе матч уже был добавлен ранее, отмечаем это
             pi.alreadyAdded++;
         }
+    }
+
+    private void parseMainMatchInfo(MatchInfo matchInfo, Element el, String dateString) throws ParseException, DataParsingException {
+        String time = dateString + el.select("div.matchTime").text();
+        matchInfo.date = DateConverter.stringToDateTime(time);
+        matchInfo.matchType = Integer.parseInt("" + el.select("div.matchMeta").text().charAt(2));
+
+        String team1 = el.select("div.team1").text();
+        String team2 = el.select("div.team2").text();
+
+        if (!(
+                Pattern.matches(teamNamePattern, team1) &&
+                        Pattern.matches(teamNamePattern, team2)
+        )) {
+            throw new DataParsingException("Неверные названия команд");
+        }
+        matchInfo.team1 = team1;
+        matchInfo.team2 = team2;
+
+        matchInfo.stars = el.select("div.fa.fa-star").size();
     }
 
     private MatchInfo parseMatchInfo(Element matchElement) throws DataParsingException {
@@ -291,7 +307,7 @@ public class DataParsing {
 
     private void parseEventLink(Element doc, MatchInfo matchInfo) throws IOException, InterruptedException {
         Element eventLinkElement = doc.select("div.event").get(0);
-        String link = "https://hltv.org/" + eventLinkElement.select("a").attr("href");
+        String link = getLinkFromHref(eventLinkElement, "a");
         Document eventDoc = getHTMLDocument(link);
 
         EventInfo eventInfo = new EventInfo();
