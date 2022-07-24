@@ -292,6 +292,10 @@ public class DataParsing {
         Elements positionsOnRankingElement = doc.select("div.teamRanking");
         matchInfo.positionHLTV1 = parseHLTVPositions(positionsOnRankingElement, true);
         matchInfo.positionHLTV2 = parseHLTVPositions(positionsOnRankingElement, false);
+
+        // получаем имена игроков
+        parsePlayersNames(doc, matchInfo);
+
         // получаем сыгранные в матче карты
         matchInfo.maps = parseMaps(doc);
         // получаем тип матча (бо1, бо3, бо5)
@@ -340,7 +344,7 @@ public class DataParsing {
         matchInfo.event = eventInfo;
     }
 
-    private MapInfo[] parseMaps(Document doc) {
+    private MapInfo[] parseMaps(Document doc) throws IOException, InterruptedException {
         Elements mapsElement = doc.select("div.mapholder");
         MapInfo[] mapsInfo = new MapInfo[mapsElement.size()];
         for (int i = 0; i < mapsInfo.length; i++) {
@@ -362,6 +366,38 @@ public class DataParsing {
         }
         return mapsInfo;
     }
+
+    private void parsePlayersNames(Document doc, MatchInfo matchInfo) {
+        Elements playersTablesElement = doc.select("table.totalstats");
+        // получаем имена игроков из общей таблицы
+        parsePlayersNameTable(playersTablesElement.get(0), matchInfo, true);
+        parsePlayersNameTable(playersTablesElement.get(1), matchInfo, false);
+    }
+
+    private void parsePlayersNameTable(Element playerTableElement, MatchInfo matchInfo, boolean first) {
+        Elements playersElements = playerTableElement.select("div.gtSmartphone-only.statsPlayerName");
+
+        List<PlayerInfo> playerInfoList = new ArrayList<>();
+        for (int i = 0; i < playersElements.size(); i++) {
+            PlayerInfo playerInfo = new PlayerInfo();
+
+            String[] allNames = playersElements.get(i).text().split("[ ']{2}");
+
+
+            playerInfo.name = allNames[0];
+            playerInfo.nickname = allNames[1];
+            playerInfo.surname = allNames[2];
+
+            playerInfoList.add(playerInfo);
+        }
+
+        if (first) {
+            matchInfo.players1 = playerInfoList;
+        } else {
+            matchInfo.players2 = playerInfoList;
+        }
+    }
+
 
     private void parseDate(Document doc, MatchInfo matchInfo) throws ParseException {
         Element matchInfoElement = doc.select("div.teamsBox").get(0);

@@ -19,6 +19,8 @@ public class MatchInfo {
     public int positionHLTV1;
     public int positionHLTV2;
     public boolean ended;
+    public List<PlayerInfo> players1;
+    public List<PlayerInfo> players2;
 
     public static Match convertMatchInfoToMatch(MatchInfo matchInfo, long eventId, long team1Id, long team2Id) {
         Match match = new Match();
