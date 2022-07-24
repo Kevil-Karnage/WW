@@ -17,8 +17,8 @@ import java.util.regex.Pattern;
 
 public class DataParsing {
 
-    DatabaseInfo dbInfo;
-
+    private DatabaseInfo dbInfo;
+    private static int connectsCount = 0;
     private String teamNamePattern = "[\\w\\s'.-]*";
 
     public DataParsing(DatabaseInfo dbInfo) {
@@ -48,12 +48,16 @@ public class DataParsing {
      */
     public Document getHTMLDocument(String link) throws InterruptedException, IOException {
         Document doc = null;
-        int i = 0;
         while (doc == null) {
+            if (connectsCount % 10 == 0) {
+                Thread.sleep(5000);
+            }
+            if (connectsCount % 50 == 0) {
+                Thread.sleep(10000);
+            }
             try {
-                i++;
-                System.out.print("Попытка №" + i);
-                Thread.sleep(1000);
+                connectsCount++;
+                System.out.println("Connect to HLTV.org: " + connectsCount);
                 doc = Jsoup.connect(link)
                         .userAgent("Chrome/4.0.249.0 Safari/532.5")
                         .referrer("http://www.google.com")
@@ -63,7 +67,6 @@ public class DataParsing {
                 System.out.println(e);
             }
         }
-        System.out.println(" успешно");
         return doc;
     }
 
@@ -75,33 +78,35 @@ public class DataParsing {
 
         Elements allMatchesElements = futureMatchesElement.select("div.upcomingMatch");
         Elements allLinksOfMatchesElements = futureMatchesElement.select("a.a-reset");
+
         List<Match> matches = new ArrayList<>();
-        System.out.println("Loading MATCHES: 0%");
+        System.out.println("Loading MATCHES: 0 from " + allMatchesElements.size());
         for (int i = 0; i < allMatchesElements.size(); i++) {
-            Element el = allMatchesElements.get(i);
+            System.out.println((i + 1) + " from " + allMatchesElements.size());
+
+            Element currentElement = allMatchesElements.get(i);
+            String currentMatchLink = "https://hltv.org" +
+                    allLinksOfMatchesElements.get(i).attr("href");
+
             MatchInfo matchInfo = new MatchInfo();
 
-            saveMainMatchInfo(matchInfo, el, dateString);
-
+            saveMainMatchInfo(matchInfo, currentElement, dateString);
             // если что-то не так с инфой, не сохраняем матч
             try {
-                parseMatchLink(
-                        "https://hltv.org" +
-                        allLinksOfMatchesElements.get(i).attr("href"),
-                        matchInfo);
+                parseMatchLink(currentMatchLink, matchInfo);
             } catch (DataParsingException e) {
                 System.out.println(e);
                 continue;
             }
 
+            // сохраняем матч в бд
             Match match = dbInfo.saveMatch(matchInfo, false);
 
-            // если матч сохранён, то добавляем в список для сохр-я
+            // если матч сохранён, то добавляем в список сохранённых
             if (match != null) matches.add(match);
-
         }
 
-        System.out.println("Loading MATCHES: 100%");
+        System.out.println("Loading MATCHES: Complete");
         return matches;
     }
 
@@ -113,8 +118,10 @@ public class DataParsing {
         String team1 = el.select("div.team1").text();
         String team2 = el.select("div.team2").text();
 
-        if (!(Pattern.matches(teamNamePattern, team1) &&
-                Pattern.matches(teamNamePattern, team2))) {
+        if (!(
+                Pattern.matches(teamNamePattern, team1) &&
+                Pattern.matches(teamNamePattern, team2)
+        )) {
             throw new DataParsingException("Неверные названия команд");
         }
         matchInfo.team1 = team1;
@@ -159,8 +166,6 @@ public class DataParsing {
         System.out.println("Loading RESULTS - part 1 from " + countCycles);
         results = findResults(shortLink, results);
         for (int i = 1; i < countCycles; i++) {
-            System.out.println("Pause 5 seconds");
-            Thread.sleep(5000);
             System.out.println("Loading RESULTS - part " + i + " from " + countCycles);
             results = findResults(longLink + (i * 100), results);
         }
@@ -262,20 +267,15 @@ public class DataParsing {
         }
 
         // получаем id матча на хлтв
-        String hltvId = matchLink.split("/")[4];
-        matchInfo.hltvId = Long.parseLong(hltvId);
+        parseHLTVMatchId(matchInfo, matchLink);
         // парсим страницу турнира
-        Element eventLinkElement = doc.select("div.event").get(0);
-        parseEventLink(eventLinkElement, matchInfo);
-
+        parseEventLink(doc, matchInfo);
         // получаем дату матча
         parseDate(doc, matchInfo);
-
         // получаем позиции команд на HLTV
         Elements positionsOnRankingElement = doc.select("div.teamRanking");
         matchInfo.positionHLTV1 = parseHLTVPositions(positionsOnRankingElement, true);
         matchInfo.positionHLTV2 = parseHLTVPositions(positionsOnRankingElement, false);
-
         // получаем сыгранные в матче карты
         matchInfo.maps = parseMaps(doc);
         // получаем тип матча (бо1, бо3, бо5)
@@ -284,10 +284,24 @@ public class DataParsing {
         return matchInfo;
     }
 
-    private void parseEventLink(Element eventLinkElement, MatchInfo matchInfo) throws IOException, InterruptedException {
+    private void parseHLTVMatchId(MatchInfo matchInfo, String matchLink) {
+        String hltvId = matchLink.split("/")[4];
+        matchInfo.hltvId = Long.parseLong(hltvId);
+    }
+
+    private void parseEventLink(Element doc, MatchInfo matchInfo) throws IOException, InterruptedException {
+        Element eventLinkElement = doc.select("div.event").get(0);
         String link = "https://hltv.org/" + eventLinkElement.select("a").attr("href");
-        Document doc = getHTMLDocument(link);
-        Elements dates = doc.select("td.eventdate").get(0).select("span");
+        Document eventDoc = getHTMLDocument(link);
+
+        EventInfo eventInfo = new EventInfo();
+
+        // сохраняем название турнира
+        String name = eventDoc.select("h1.event-hub-title").text();
+        eventInfo.setName(name);
+
+        // получаем даты начала и конца турнира
+        Elements dates = eventDoc.select("td.eventdate").get(0).select("span");
         List<String> stringDates = new ArrayList<>();
         for (int i = 0; i < dates.size(); i++) {
             String date =  dates.get(i).attr("data-unix");
@@ -295,17 +309,18 @@ public class DataParsing {
                 stringDates.add(date);
             }
         }
-
-        String name = doc.select("h1.event-hub-title").text();
-
+        // сохраняем найденные даты
         long beginDate = Long.parseLong(stringDates.get(0));
-        long endDate = Long.parseLong(stringDates.get(1));
-
-        EventInfo eventInfo = new EventInfo();
-        eventInfo.setName(name);
         eventInfo.setBeginDate(new java.sql.Date(beginDate));
+
+        long endDate = beginDate;
+        if (stringDates.size() > 1) {
+            endDate = Long.parseLong(stringDates.get(1));
+        }
+
         eventInfo.setEndDate(new java.sql.Date(endDate));
 
+        // добавляем турнир в матч
         matchInfo.event = eventInfo;
     }
 
