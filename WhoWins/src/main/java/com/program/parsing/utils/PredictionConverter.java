@@ -15,7 +15,7 @@ public class PredictionConverter {
     public PredictionConverter(DatabaseInfo dbInfo) {
         this.dbInfo = dbInfo;
     }
-
+/*
     public List<PredictionInfo> convertToListPredictionInfo(List<Prediction> predictionList) {
         List<PredictionInfo> predictionInfoList = new ArrayList<>();
 
@@ -41,5 +41,5 @@ public class PredictionConverter {
             }
         }
         return predictionInfoList;
-    }
+    }*/
 }

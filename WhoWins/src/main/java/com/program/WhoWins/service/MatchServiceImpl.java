@@ -30,8 +30,10 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public List<Match> getByTeamIdOrderByDate(long teamId) {
-        return matchRepository.getByTeamIdOrderByDate(teamId);
+    public List<Match> getEndedByTeamIdOrderByDate(long teamId) {
+        List<Match> matches = matchRepository.getEndedByTeamIdOrderByDate(teamId);
+        matches.removeIf(e -> !e.isEnded());
+        return matches;
     }
 
     @Override
@@ -40,8 +42,8 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public Match getByEventTeamsAndDate(long eventId, long idTeam1, long idTeam2, Date date) {
-        return matchRepository.getByEventTeamsAndDate(eventId, idTeam1, idTeam2, date);
+    public Match getByEventTeamsAndDate(long hltvId, long eventId, long idTeam1, long idTeam2, Date date) {
+        return matchRepository.getByEventTeamsAndDate(hltvId, eventId, idTeam1, idTeam2, date);
     }
 
     @Override

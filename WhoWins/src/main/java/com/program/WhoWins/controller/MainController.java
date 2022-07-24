@@ -7,6 +7,7 @@ import com.program.prediction.PredictionGenerator;
 import com.program.shell.DatabaseInfo;
 import com.program.shell.ParsingInfo;
 import com.program.shell.PredictionInfo;
+import com.program.shell.RatingInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -56,9 +58,11 @@ public class MainController {
     @GetMapping("/saveLastResult")
     public String saveLastResult(Model model) throws Exception {
         DataParsing dataParsing = new DataParsing(dbInfo);
-        Match match = dataParsing.parseOneResult();
-        model.addAttribute("match", match);
-        return "home";
+        Match result = dataParsing.parseOneResult();
+        model.addAttribute("result", result);
+        List<Map> maps = dbInfo.mapService.getByMatchId(result.getId());
+        model.addAttribute("maps", maps);
+        return "result";
     }
 
     @PostMapping("/prediction")
@@ -68,7 +72,26 @@ public class MainController {
         PredictionGenerator predictionGenerator = new PredictionGenerator(dbInfo);
         PredictionInfo prediction = predictionGenerator.create(team1, team2, new Date());
         model.addAttribute("prediction", prediction);
+
         return "prediction";
+    }
+
+    @GetMapping("/match/{id}")
+    public String match(@PathVariable(name = "id") long matchId, Model model) {
+        Match m = dbInfo.matchService.getById(matchId);
+        if (m == null) {
+            model.addAttribute("match", null);
+            return "match";
+        }
+
+        model.addAttribute("match", m);
+        PredictionGenerator pg = new PredictionGenerator(dbInfo);
+
+        PredictionInfo prediction1 = pg.create(m);
+        model.addAttribute("prediction1", prediction1);
+        PredictionInfo prediction2 = pg.createV2(m);
+        model.addAttribute("prediction2", prediction2);
+        return "match";
     }
 
     @GetMapping("/predictions")
@@ -76,9 +99,13 @@ public class MainController {
         PredictionGenerator pg = new PredictionGenerator(dbInfo);
 
         List<Match> matches = dbInfo.matchService.getMatchesByEndedValue(false);
-        List<PredictionInfo> predictions = makePredictArray(matches, pg);
+        //List<PredictionInfo> predictions = makePredictArray(matches, pg, false);
+        //model.addAttribute("predictions", predictions);
 
-        model.addAttribute("predictions", predictions);
+        //List<PredictionInfo> expPredictions = makePredictArray(matches, pg, true);
+        //model.addAttribute("experiment", expPredictions);
+
+
         return "predictions";
     }
 
@@ -88,26 +115,43 @@ public class MainController {
         DataParsing dp = new DataParsing(dbInfo);
 
         List<Match> matches = dp.parseMatches(0);
-        List<PredictionInfo> predictions = makePredictArray(matches, pg);
-        model.addAttribute("predictions", predictions);
+        //List<PredictionInfo> predictions = makePredictArray(matches, pg, false);
+        //model.addAttribute("predictions", predictions);
         return "predictions";
     }
-
-    private List<PredictionInfo> makePredictArray (List<Match> matches, PredictionGenerator pg) {
+/*
+    private List<PredictionInfo> makePredictArray (List<Match> matches, PredictionGenerator pg, boolean experimental) {
         PredictionConverter pc = new PredictionConverter(dbInfo);
         List<Prediction> fromDB = dbInfo.predictionService.getNotEnded();
         List<PredictionInfo> predictions = pc.convertToListPredictionInfo(fromDB);
         for (Match m: matches) {
-            PredictionInfo newPrediction = pg.create(m);
-            if (newPrediction != null && newPrediction.getPredictPoints() < 2) {
-                /*Prediction predict = dbInfo.savePrediction(newPrediction);
-                if (predict != null)*/
-                predictions.add(newPrediction);
+            PredictionInfo newPrediction;
+            if (experimental) {
+                newPrediction = pg.createV2(m);
+            } else {
+                newPrediction = pg.create(m);
             }
+
+            if (newPrediction != null)
+                predictions.add(newPrediction);
         }
 
         return predictions;
     }
+*/
+    @GetMapping("/rating")
+    public String getRating(Model model) {
+        PredictionGenerator pg = new PredictionGenerator(dbInfo);
+        List<RatingInfo> rating = pg.getRating();
+        model.addAttribute("rating", rating);
+        return "rating";
+    }
 
+    @GetMapping("/events")
+    public String getAllEvents(Model model) {
+        List<Event> events = dbInfo.eventService.getAll();
+        model.addAttribute("events", events);
+        return "events";
+    }
 
 }

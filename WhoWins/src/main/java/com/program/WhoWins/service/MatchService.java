@@ -11,9 +11,9 @@ public interface MatchService {
     Match getById(long id);
     List<Match> getAll();
     List<Match> getByTeamId(long teamId);
-    List<Match> getByTeamIdOrderByDate(long teamId);
+    List<Match> getEndedByTeamIdOrderByDate(long teamId);
     List<Match> getByEventId(long eventId);
-    Match getByEventTeamsAndDate(long eventId, long idTeam1, long idTeam2, Date date);
+    Match getByEventTeamsAndDate(long hltvId, long eventId, long idTeam1, long idTeam2, Date date);
     void setEnded(long matchId, boolean ended);
     List<Match> getMatchesByEndedValue(boolean ended);
 }

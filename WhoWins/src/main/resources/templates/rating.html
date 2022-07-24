@@ -12,8 +12,8 @@
 
   <button text="сделать прогноз" href="/prediction"></button>
 </form>
-<div th:each="el: ${teams}">
-  <div th:text="${el.toString()}" h></div>
+<div th:each="el: ${rating}">
+  <div th:text="${el.getName() + ': ' + el.getPoints()}" h></div>
 </div>
 </body>
 </html>

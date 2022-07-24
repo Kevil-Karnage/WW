@@ -12,11 +12,11 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("select b from Match b where b.idTeam1 = :teamId or b.idTeam2 = :teamId")
     List<Match> getByTeamId(long teamId);
     @Query("select b from Match b where b.idTeam1 = :teamId or b.idTeam2 = :teamId order by b.date DESC")
-    List<Match> getByTeamIdOrderByDate(long teamId);
+    List<Match> getEndedByTeamIdOrderByDate(long teamId);
     @Query("select b from Match b where b.eventId = :eventId")
     List<Match> getByEventId(long eventId);
-    @Query("select b from Match b where b.eventId = :eventId and b.idTeam1 in (:idTeam1, :idTeam2) and b.idTeam2 in (:idTeam1, :idTeam2) and b.date = :date")
-    Match getByEventTeamsAndDate(long eventId, long idTeam1, long idTeam2, Date date);
+    @Query("select b from Match b where b.hltvId = :hltvId and b.eventId = :eventId and b.idTeam1 in (:idTeam1, :idTeam2) and b.idTeam2 in (:idTeam1, :idTeam2) and b.date = :date")
+    Match getByEventTeamsAndDate(long hltvId, long eventId, long idTeam1, long idTeam2, Date date);
     @Modifying
     @Query("update Match b set b.ended = :ended where b.id = :id")
     void setEnded(long id, boolean ended);
