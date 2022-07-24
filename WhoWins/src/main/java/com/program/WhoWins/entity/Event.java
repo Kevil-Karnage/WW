@@ -19,9 +19,9 @@ public class Event {
     private Long id;
     @Column(name = "name", updatable = false, nullable = false, unique = true)
     private String name;
-    @Column(name = "begin_date", updatable = false, nullable = false, unique = true)
+    @Column(name = "begin_date", updatable = false, nullable = false)
     private Date beginDate;
-    @Column(name = "end_date", updatable = false, nullable = false, unique = true)
+    @Column(name = "end_date", updatable = false, nullable = false)
     private Date endDate;
 
     @Override
