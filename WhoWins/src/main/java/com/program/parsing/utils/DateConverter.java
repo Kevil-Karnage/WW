@@ -53,6 +53,15 @@ public class DateConverter {
         if (day.length() == 1) return "0" + day;
         return day;
     }
+
+    private static long day = 86400000;
+
+    public static boolean isTheSameDay(Date first, Date second) {
+        int countDays1 = (int) (first.getTime()/day);
+        int countDays2 = (int) (second.getTime()/day);
+
+        return countDays1 == countDays2;
+    }
 }
 
 enum Month {

@@ -2,6 +2,7 @@ package com.program.shell;
 
 import com.program.WhoWins.entity.*;
 import com.program.WhoWins.service.*;
+import com.program.parsing.utils.DateConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
@@ -10,9 +11,9 @@ public class DatabaseInfo {
     @Autowired
     public MatchService matchService = new MatchServiceImpl();
     @Autowired
-    public MapService mapService = new MapServiceImpl();
+    public MapTypeService mapTypeService = new MapTypeServiceImpl();
     @Autowired
-    public PlayedMapService playedMapService = new PlayedMapServiceImpl();
+    public MapService mapService = new MapServiceImpl();
     @Autowired
     public TeamService teamService = new TeamServiceImpl();
     @Autowired
@@ -24,14 +25,14 @@ public class DatabaseInfo {
     }
 
     public DatabaseInfo(MatchService matchService,
+                        MapTypeService mapTypeService,
                         MapService mapService,
-                        PlayedMapService playedMapService,
                         TeamService teamService,
                         EventService eventService,
                         PredictionService predictionService) {
         this.matchService = matchService;
+        this.mapTypeService = mapTypeService;
         this.mapService = mapService;
-        this.playedMapService = playedMapService;
         this.teamService = teamService;
         this.eventService = eventService;
         this.predictionService = predictionService;
@@ -47,13 +48,18 @@ public class DatabaseInfo {
 
         // ищем матч в бд
         Match fromDB = matchService.getByEventTeamsAndDate(
-                match.getEventId(), match.getIdTeam1(), match.getIdTeam2(), match.getDate());
+                match.getHltvId(),
+                match.getEventId(),
+                match.getIdTeam1(),
+                match.getIdTeam2(),
+                match.getDate()
+        );
 
         // если матч уже был добавлен до этого как будущий матч
-        if (match.equals(fromDB)) {
+        if (match.equals(fromDB) && DateConverter.isTheSameDay(match.getDate(), fromDB.getDate())) {
             // то обновляем инфу о нём
             match = fromDB;
-            // если сохраняем законченный матч и в бд он не сохранён
+            // если сохраняем законченный матч а в бд он не закончен
             if (isEndedMatch && !match.isEnded()) {
                 // то обновляем информацию
                 match.setEnded(true);
@@ -68,7 +74,11 @@ public class DatabaseInfo {
             return null;
         } else {
             // сохраняем матч в бд
-            return matchService.addMatch(match);
+            match = matchService.addMatch(match);
+            // сохраняем карты матча
+            saveEndedMaps(match, matchInfo);
+
+            return match;
         }
     }
 
@@ -95,11 +105,15 @@ public class DatabaseInfo {
         }
     }
 
-    public long saveEvent(String eventName) {
-        Event event = eventService.getByName(eventName);
+    public long saveEvent(EventInfo eventInfo) {
+        Event event = eventService.getByName(eventInfo.getName());
         if (event == null) {
             event = new Event();
-            event.setName(eventName);
+
+            event.setName(eventInfo.getName());
+            event.setBeginDate(eventInfo.beginDate);
+            event.setEndDate(eventInfo.endDate);
+
             eventService.addEvent(event);
         }
         return event.getId();
@@ -116,18 +130,18 @@ public class DatabaseInfo {
     }
 
     public void saveMap(MapInfo mapInfo, long matchId) {
-        Map map = mapService.getByName(mapInfo.map);
-        if (map == null) {
-            map = new Map();
-            map.setName(mapInfo.map);
-            mapService.addMap(map);
+        MapType mapType = mapTypeService.getByName(mapInfo.map);
+        if (mapType == null) {
+            mapType = new MapType();
+            mapType.setName(mapInfo.map);
+            mapType = mapTypeService.addMapType(mapType);
         }
-        PlayedMap playedMap = new PlayedMap();
-        playedMap.setMapId(map.getId());
-        playedMap.setMatchId(matchId);
-        playedMap.setScoreTeam1(mapInfo.score1);
-        playedMap.setScoreTeam2(mapInfo.score2);
-        playedMapService.addPlayedMap(playedMap);
+        Map map = new Map();
+        map.setMapTypeId(mapType.getId());
+        map.setMatchId(matchId);
+        map.setScoreTeam1(mapInfo.score1);
+        map.setScoreTeam2(mapInfo.score2);
+        mapService.addPlayedMap(map);
     }
 
     public Prediction savePrediction(PredictionInfo predictionInfo) {
@@ -161,8 +175,8 @@ public class DatabaseInfo {
         if (!match.isEnded()) return -1;
 
         int count = 0;
-        List<PlayedMap> playedMaps = playedMapService.getByMatchId(matchId);
-        for (PlayedMap pm : playedMaps) {
+        List<Map> maps = mapService.getByMatchId(matchId);
+        for (Map pm : maps) {
             if (pm.getScoreTeam1() > pm.getScoreTeam2()) {
                 count++;
             } else {

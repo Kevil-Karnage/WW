@@ -16,8 +16,8 @@ class DatabaseInfoConfiguration {
         log.info("DatabaseInfo initialization");
         return new DatabaseInfo(
                 new MatchServiceImpl(),
+                new MapTypeServiceImpl(),
                 new MapServiceImpl(),
-                new PlayedMapServiceImpl(),
                 new TeamServiceImpl(),
                 new EventServiceImpl(),
                 new PredictionServiceImpl());

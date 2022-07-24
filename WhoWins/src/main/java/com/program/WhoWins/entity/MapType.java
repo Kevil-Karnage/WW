@@ -13,19 +13,20 @@ import javax.persistence.*;
 @Setter
 
 @Entity
-@Table(name = "teams")
-public class Team {
+@Table(name = "map_types")
+public class MapType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
     @Column(name = "name", updatable = false, nullable = false, unique = true)
     private String name;
-
+    @Column(name = "actual", updatable = false, nullable = false, unique = false)
+    private boolean actual;
 
     @Override
     public String toString() {
-        return "Team{" +
+        return "MapType{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 '}';

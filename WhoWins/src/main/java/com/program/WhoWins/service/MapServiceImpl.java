@@ -11,16 +11,31 @@ import java.util.List;
 public class MapServiceImpl implements MapService {
 
     @Autowired
-    MapRepository mapRepository;
+    private MapRepository mapRepository;
 
-    public Map addMap(Map map) {
+
+    @Override
+    public Map addPlayedMap(Map map) {
         return mapRepository.saveAndFlush(map);
     }
 
-    public Map getByName(String name) {
-        return mapRepository.getByName(name);
+    @Override
+    public List<Map> getAll() {
+        return mapRepository.findAll();
     }
 
-    public List<Map> getAll() { return mapRepository.findAll();
+    @Override
+    public List<Map> getByMatchId(long matchId) {
+        return mapRepository.getByMatchId(matchId);
+    }
+
+    @Override
+    public List<Map> getByMapId(long mapId) {
+        return mapRepository.getByMapId(mapId);
+    }
+
+    @Override
+    public Map getByMapAndMatchId(long mapId, long matchId) {
+        return mapRepository.getByMapAndMatchId(mapId, matchId);
     }
 }
