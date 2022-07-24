@@ -1,0 +1,21 @@
+<div>
+    <div th:text="'Матч № ' + ${prediction1.getMatchId()}"></div>
+    <table>
+        <tr><td>Очки за карты</td></tr>
+        <tr>
+            <td th:text="${prediction1.getTeam1()} + '    '"></td>
+            <td th:text="Карта + '    '"></td>
+            <td th:text="${prediction1.getTeam2()} + '    '"></td>
+        </tr>
+        <tr th:each="el: ${prediction1.getMapsPoints1().keySet()}">
+            <td th:text="${prediction1.getMapsPoints1().get(el)}"></td>
+            <td th:text="${el} + '    '"></td>
+            <td th:text="${prediction1.getMapsPoints2().get(el)}"></td>
+        </tr>
+        <tr>
+            <td th:text="${prediction1.getPoints1()}"></td>
+            <td th:text="Общий + '    '"></td>
+            <td th:text="${prediction1.getPoints2()}"></td>
+        </tr>
+    </table>
+</div>
